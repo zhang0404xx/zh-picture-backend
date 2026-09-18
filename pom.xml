@@ -5,7 +5,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>4.0.7</version>
+        <version>3.4.5</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.zh</groupId>
@@ -30,16 +30,23 @@
         <java.version>21</java.version>
     </properties>
     <dependencies>
-        <!-- Spring Boot Web MVC：提供 Web 开发支持，包括 RESTful API、请求路由、JSON 序列化等 -->
+        <!-- Spring Boot Web：提供 Web 开发支持，包括 RESTful API、请求路由、JSON 序列化等 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-webmvc</artifactId>
+            <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
         <!-- MyBatis-Plus：增强版 MyBatis ORM 框架，提供通用 CRUD、分页插件、代码生成等功能 -->
         <dependency>
             <groupId>com.baomidou</groupId>
             <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+            <version>3.5.12</version>
+        </dependency>
+
+        <!-- MyBatis-Plus JSqlParser：3.5.9 起分页插件 PaginationInnerInterceptor 被拆到此模块，需单独引入 -->
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-jsqlparser</artifactId>
             <version>3.5.12</version>
         </dependency>
 
@@ -57,10 +64,10 @@
             <optional>true</optional>
         </dependency>
 
-        <!-- Spring Boot Web MVC 测试：提供 MockMvc 等工具，用于测试 Controller 层接口 -->
+        <!-- Spring Boot 测试：提供 MockMvc 等工具，用于测试 Controller 层接口 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-webmvc-test</artifactId>
+            <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -76,14 +83,22 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-aop</artifactId>
-            <version>3.2.0</version>
         </dependency>
 
-        <!-- Knife4j：基于 OpenAPI3 的接口文档工具，提供可视化的 API 调试页面（访问 /doc.html） -->
+        <!-- Knife4j（社区分支 knife4j-next）：基于 OpenAPI3 的接口文档工具，提供可视化的 API 调试页面（访问 /doc.html）
+             注：官方 com.github.xiaoymin 4.x 已停更，与 Spring Boot 3.4+ 不兼容（NoSuchMethodError），
+             此分支已适配 Boot 3.4/3.5 并内置兼容的 springdoc-openapi 版本 -->
         <dependency>
-            <groupId>com.github.xiaoymin</groupId>
+            <groupId>com.baizhukui</groupId>
             <artifactId>knife4j-openapi3-jakarta-spring-boot-starter</artifactId>
-            <version>4.5.0</version>
+            <version>5.7.4</version>
+        </dependency>
+
+        <!-- Hutool：Java 工具类库，提供字符串处理、集合操作、加密解密、IO、HTTP 等常用工具 -->
+        <dependency>
+            <groupId>cn.hutool</groupId>
+            <artifactId>hutool-all</artifactId>
+            <version>5.8.26</version>
         </dependency>
     </dependencies>
 

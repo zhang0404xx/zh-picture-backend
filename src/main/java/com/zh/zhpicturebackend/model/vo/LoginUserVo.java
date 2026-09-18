@@ -1,23 +1,24 @@
-package generator.domain;
+package com.zh.zhpicturebackend.model.vo;
 
 import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
-import java.util.Date;
 import lombok.Data;
+
+import java.util.Date;
 
 /**
  * 用户
+ *
  * @TableName user
  */
-@TableName(value ="user")
 @Data
-public class User {
+public class LoginUserVo {
     /**
      * id
      */
-    @TableId(type = IdType.AUTO)
+    @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
     /**
@@ -25,10 +26,6 @@ public class User {
      */
     private String userAccount;
 
-    /**
-     * 密码
-     */
-    private String userPassword;
 
     /**
      * 用户昵称
@@ -64,11 +61,6 @@ public class User {
      * 更新时间
      */
     private Date updateTime;
-
-    /**
-     * 是否删除
-     */
-    private Integer isDelete;
 
     /**
      * 会员过期时间

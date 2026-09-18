@@ -11,9 +11,9 @@ spring:
     url: jdbc:mysql://localhost:3306/zh_picture?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
     username: root
     password: 123456
-  # 配置数据库连接池
-  hikari:
-    maximum-pool-size: 10
+    # 配置数据库连接池
+    hikari:
+      maximum-pool-size: 10
 
 # springdoc-openapi 配置
 springdoc:
@@ -50,7 +50,7 @@ mybatis-plus:
   global-config:
     db-config:
       # 逻辑删除配置
-      logic-delete-field: isDeleted
+      logic-delete-field: isDelete
       logic-delete-value: 1
       logic-not-delete-value: 0
 
