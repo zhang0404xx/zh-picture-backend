@@ -5,15 +5,10 @@ server:
 spring:
   application:
     name: zh-picture-backend
-  # 数据库配置
-  datasource:
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/zh_picture?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
-    username: root
-    password: 123456
-    # 配置数据库连接池
-    hikari:
-      maximum-pool-size: 10
+  # 激活本地环境配置（application-local.yml 已被 .gitignore 忽略，存放数据库连接、COS 密钥等敏感信息）
+  profiles:
+    active: local
+  # 数据库配置：见 application-local.yml（含账号密码，不入 Git 仓库）
 
 # springdoc-openapi 配置
 springdoc:
@@ -41,8 +36,9 @@ mybatis-plus:
   # 实体类别名包
   type-aliases-package: com.zh.zhpicturebackend.model.entity
   configuration:
-    # 开启驼峰命名映射（数据库字段 -> Java 属性）
-    map-underscore-to-camel-case: true
+    # 关闭驼峰转下划线映射：数据库列名本身为驼峰命名（如 userAccount），
+    # 若开启，MyBatis-Plus 会将实体驼峰字段转为下划线列名（user_account）导致 Unknown column 报错
+    map-underscore-to-camel-case: false
     # 开启二级缓存
     cache-enabled: true
     # 打印 SQL（开发阶段便于调试，生产环境建议关闭）
@@ -53,4 +49,12 @@ mybatis-plus:
       logic-delete-field: isDelete
       logic-delete-value: 1
       logic-not-delete-value: 0
+# 对象存储 COS 配置：见 application-local.yml（含 SecretId/SecretKey 密钥，不入 Git 仓库）
+
+# 用户模块配置
+zh-picture:
+  user:
+    # 新增用户的初始密码（须满足 8~16 位密码规则；可通过环境变量 USER_DEFAULT_PASSWORD 覆盖，避免生产环境沿用仓库中的默认值）
+    default-password: "${USER_DEFAULT_PASSWORD:ZhPicture@123}"
+
 

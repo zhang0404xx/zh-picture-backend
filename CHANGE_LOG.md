@@ -9,6 +9,8 @@
 | 版本号 | 日期 | 说明 |
 |--------|------|------|
 | v0.0.1 | 2026-08-08 | 项目初始化，完成基础框架搭建 |
+| v0.0.2 | 2026-09-18 | 用户模块接口补全、Knife4j 依赖兼容性修复、分页插件接入 |
+| v0.0.3 | 2026-09-20 | COS 对象存储配置接入、本地 profile 激活 |
 
 ---
 
@@ -115,6 +117,76 @@
 
 ---
 
+## v0.0.2 — 用户模块接口补全与依赖兼容性修复（2026-09-18）
+
+### 新增
+
+- 根据 id 查询用户接口 `GET /user/get`（仅管理员，返回脱敏 `UserVo`）（`UserController.java`）
+- 更新用户接口 `POST /user/update`（仅管理员，部分更新：仅更新非 null 字段）（`UserController.java`、`UserUpdateRequest.java`）
+- 删除用户接口 `POST /user/delete`（仅管理员，逻辑删除，含禁止删除自己的保护）（`UserController.java`）
+- 分页获取用户列表接口 `POST /user/list/page`（仅管理员，支持 id/昵称/账号/角色筛选与排序，返回 `Page<UserVo>`）（`UserController.java`）
+- MyBatis-Plus 分页插件配置 `PaginationInnerInterceptor`（MySQL 方言），分页查询才会真正拼接 LIMIT（`MybatisPlusConfig.java` 新建）
+
+### 修改
+
+- `getUserVoList` 空列表语义修正：由抛出 `BusinessException` 改为返回空集合（分页超界、无匹配记录属正常业务场景）（`UserServiceImpl.java`）
+- `UserUpdateRequest` 字段与 `User` 实体对齐：`username`→`userName`，移除实体不存在的 `email`/`phone`，补充 `userProfile`（避免 `BeanUtils.copyProperties` 静默忽略导致更新不生效）
+- `.feisuan/rules/project_rule.md` 补充用户模块功能基线章节（接口清单 + 10 条设计约定），同步技术栈依赖变更
+
+### 修复
+
+- **Knife4j 与 Spring Boot 3.4.5 双向不兼容（两次 `NoSuchMethodError`）**：官方 `com.github.xiaoymin` 4.5.0 已停更，默认传递的 springdoc 2.3.0 调用 Spring Framework 6.2 已删除的 `ControllerAdviceBean(Object)` 构造函数；显式升级 springdoc 2.8.6 后又触发 knife4j 调用旧签名 `List getGroupConfigs()`。彻底方案：切换社区分支 `com.baizhukui:knife4j-openapi3-jakarta-spring-boot-starter:5.7.4`（内置配套 springdoc 2.8.9）（`pom.xml`）
+- **`/user/register` 路由重复映射导致启动失败（Ambiguous mapping）**：`userRegister` 与 `addUser` 均映射 `GET /register`；改为 `POST /register` 与 `POST /add`（`UserController.java`）
+- **注册接口权限死锁**：`userRegister` 曾标注 `@AuthCheck(ADMIN_ROLE)`，新用户无管理员角色永远无法注册，移除该注解改为公开接口（`UserController.java`）
+- **登录接口 GET + `@RequestBody` 不可用**：GET 请求体无法在浏览器/axios 中发送，改为 `POST /login`（`UserController.java`）
+- **分页插件类无法解析**：MyBatis-Plus 3.5.9 起 `PaginationInnerInterceptor` 拆至独立模块，补充 `mybatis-plus-jsqlparser:3.5.12` 依赖（`pom.xml`）
+
+### 配置变更
+
+- `pom.xml`：`com.github.xiaoymin:knife4j-openapi3-jakarta-spring-boot-starter:4.5.0` → `com.baizhukui:...:5.7.4`
+- `pom.xml`：新增 `com.baomidou:mybatis-plus-jsqlparser:3.5.12`
+
+### 环境问题记录（非代码变更）
+
+- Git 推送 GitHub 失败：全局代理指向未运行的 Clash（127.0.0.1:7890）；已删除全局代理配置，后续视网络情况决定是否恢复
+- IDEA 报 "程序包不存在" 但 Maven 编译成功：IDEA 编译缓存与 pom 变更/命令行 clean 不同步所致，Reload Maven + Rebuild Project 解决
+
+---
+
+## v0.0.3 — COS 对象存储配置接入（2026-09-20）
+
+### 新增
+
+- 腾讯云 COS 对象存储配置（`cos.client`：host / secretId / secretKey / region / bucket，附带控制台与密钥获取地址的注释说明）（`application-local.yml`）
+
+### 修改
+
+- 激活本地环境配置 `spring.profiles.active: local`，使被 .gitignore 忽略的 `application-local.yml`（存放密钥等敏感信息）真正被 Spring Boot 加载（`application.yml`）
+- 文件末尾悬空的“对象存储配置”注释改为指向 `application-local.yml` 的说明，避免误导（`application.yml`）
+
+### 修复
+
+- **启动创建 COS 客户端 Bean 报 `java.lang.IllegalArgumentException: Access key cannot be null.`**：`application-local.yml` 键名 `secretId` 与 `CosClientConfig` 字段 `accessKey` 不一致，`@ConfigurationProperties` 按字段名绑定且对未知键静默忽略，`accessKey` 为 null 传入 `BasicCOSCredentials` 抛异常；且运行期加载的是 `target/classes` 中的构建副本，修改 `src` 下配置后未重建则改动不生效。键名统一为 `accessKey` 后全量重建（`mvnw clean test`）同步并验证启动成功（`application-local.yml`）
+- **测试上传接口上传的 COS 对象 key 恒为 `uploads/`（文件名丢失、互相覆盖）**：`String.format("uploads/" ,fileName)` 缺少 `%s` 占位符；临时文件此前以含路径分隔符的 filePath 作前缀。修正为 `String.format("uploads/%s", fileName)`，临时文件改用固定前缀 `File.createTempFile("upload-", null)`（`FileController.java`）
+- **用户注册接口报 `Unknown column 'user_account' in 'field list'`**：`map-underscore-to-camel-case: true` 使 MyBatis-Plus 把实体驼峰字段转为下划线列名生成 SQL（`userAccount` → `user_account`），而数据库列名为驼峰命名导致不匹配；改为 `false` 后 MP 直接使用字段名作列名（`application.yml`）
+- **创建用户接口（/user/add）安全问题修复**：请求中指定的密码被固定弱密码 `123456` 无条件覆盖（管理员指定密码无效）；默认密码硬编码为弱口令；接口鉴权被注释。修正为：优先使用请求指定密码、缺省时使用 `zh-picture.user.default-password` 配置的初始密码（默认 `ZhPicture@123`，支持环境变量 `USER_DEFAULT_PASSWORD` 覆盖），密码校验 8~16 位；恢复管理员鉴权 `@AuthCheck(mustRole = ADMIN_ROLE)`（`UserController.java`、`application.yml`）
+
+### 配置变更
+
+- `application-local.yml`：写入 COS 配置（当前为占位值，需替换为实际的 SecretId / SecretKey / 存储桶信息）
+- `application.yml`：`spring` 节点新增 `profiles.active: local`
+- `application-local.yml`：键名 `cos.client.secretId` → `cos.client.accessKey`（与 `CosClientConfig` 字段对齐，修复凭证绑定失败）（2026-09-23）
+- `application.yml` → `application-local.yml`：数据库连接配置（`spring.datasource` + hikari 连接池）迁移至本地专属配置，账号密码不再进入 Git 仓库（关联 E-005）（2026-09-23）
+- `application.yml`：`mybatis-plus.configuration.map-underscore-to-camel-case`：`true` → `false`（数据库列名为驼峰命名，需关闭下划线转换，修复注册报 Unknown column）（2026-09-23）
+- `application.yml`：新增 `zh-picture.user.default-password` 初始密码配置（默认值 `ZhPicture@123`；`${USER_DEFAULT_PASSWORD:...}` 支持环境变量覆盖）（2026-09-23）
+
+### 环境问题记录（非代码变更）
+
+- 终端直接执行 `mvnw` 报“不支持发行版本 21”：系统默认 `JAVA_HOME` 指向 JDK 11，需先设置 `JAVA_HOME=D:\Java\jdk21`；IDEA 内构建运行不受影响
+- 清理 git 暂存区误命名残留文件 `application-local.yml.xml`（Spring 配置文件的错误后缀永不会被加载；工作区中该文件已删除，本次仅从暂存区移除）
+
+---
+
 ## 修改记录模板
 
 > 后续版本更新时，请按照以下格式追加记录：
@@ -140,4 +212,4 @@
 
 ---
 
-*最后更新：2026-08-08*
+*最后更新：2026-09-23*

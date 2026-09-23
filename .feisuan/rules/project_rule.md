@@ -52,8 +52,9 @@ zh-picture-backend
 - **ORM 框架**：MyBatis-Plus 3.5.12 (替代 JPA)
 - **核心依赖**：
   - `spring-boot-starter-web`
-  - `mybatis-plus-spring-boot3-starter`
-  - `knife4j-openapi3-jakarta-spring-boot-starter` (API 文档)
+  - `mybatis-plus-spring-boot3-starter` 3.5.12
+  - `mybatis-plus-jsqlparser` 3.5.12（3.5.9 起分页插件 `PaginationInnerInterceptor` 所需，必须单独引入）
+  - `com.baizhukui:knife4j-openapi3-jakarta-spring-boot-starter` 5.7.4（社区分支 knife4j-next；官方 com.github.xiaoymin 4.x 已停更，与 Boot 3.4+ 不兼容，勿回退）
   - `hutool-all` (工具类库)
   - `lombok`
   - `spring-boot-starter-aop`
@@ -134,7 +135,36 @@ zh-picture-backend
 - 访问地址：`http://localhost:8123/api/doc.html`。
 - Controller 方法需添加 `@Tag`、`@Operation` 等注解描述接口信息。
 
-## 八、编码原则总结
+## 八、用户模块功能基线（2026-09-18）
+
+### 接口清单
+
+| 功能 | 方法与路径 | 权限 | 返回值 | 说明 |
+|------|-----------|------|--------|------|
+| 用户注册 | `POST /user/register` | 公开 | `BaseResponse<Long>` | 返回新用户 id，无需登录 |
+| 用户登录 | `POST /user/login` | 公开 | `BaseResponse<LoginUserVo>` | Session 记录登录态 |
+| 获取当前用户 | `GET /user/getLoginUser` | 登录用户 | `BaseResponse<LoginUserVo>` | 每次从数据库实时查询 |
+| 用户注销 | `GET /user/logout` | 登录用户 | `BaseResponse<Boolean>` | 移除 Session 登录态 |
+| 创建用户 | `POST /user/add` | 管理员 | `BaseResponse<Long>` | 默认密码 `123456`（加密存储） |
+| 按 id 查询 | `GET /user/get` | 管理员 | `BaseResponse<UserVo>` | 参数 `id`，返回脱敏 VO |
+| 更新用户 | `POST /user/update` | 管理员 | `BaseResponse<Boolean>` | 仅更新非 null 字段 |
+| 删除用户 | `POST /user/delete` | 管理员 | `BaseResponse<Boolean>` | 逻辑删除，禁止删除自己 |
+| 分页列表 | `POST /user/list/page` | 管理员 | `BaseResponse<Page<UserVo>>` | 条件筛选 + 排序分页 |
+
+### 设计约定
+
+- **脱敏返回**：面向前端的查询一律返回 `UserVo` / `LoginUserVo`，禁止直接返回 `User` 实体（含密码字段）。
+- **权限校验**：管理接口使用 `@AuthCheck(mustRole = UserConstant.ADMIN_ROLE)`（AOP 切面实现）；注册、登录为公开接口，不得加管理员权限（否则新用户无法注册）。
+- **HTTP 方法语义**：`@RequestBody` 接口必须搭配 `@PostMapping`，禁止 GET + RequestBody 组合；简单查询用 GET + 查询参数。
+- **路由唯一性**：同一路径不得被多个方法映射（曾因 `/register` 重复映射导致启动失败）。
+- **部分更新**：依赖 MyBatis-Plus 默认 `NOT_NULL` 字段策略，DTO 未传的字段不更新。
+- **逻辑删除**：`User.isDelete` 标注 `@TableLogic`，`removeById` 实际执行 `UPDATE ... SET isDelete=1`，非物理删除。
+- **分页规范**：查询 DTO 继承 `PageRequest`（current/pageSize/sortField/sortOrder）；依赖 `MybatisPlusConfig` 注册的 `PaginationInnerInterceptor` 才会真正拼接 LIMIT，新增分页查询前确认该配置存在。
+- **空结果语义**：`getUserVoList` 对空列表返回空集合而非抛异常（分页超界、无匹配记录属正常业务场景）。
+- **DTO 字段对齐**：请求 DTO 字段名必须与实体一致（如 `userName` 而非 `username`），否则 `BeanUtils.copyProperties` 静默忽略，导致"操作成功但数据未变"。
+- **查询条件构造**：统一经 `UserService.getQueryWrapper(UserQueryRequest)` 动态拼接，条件字段全部可选。
+
+## 九、编码原则总结
 
 | 原则       | 说明                                       |
 |------------|--------------------------------------------|

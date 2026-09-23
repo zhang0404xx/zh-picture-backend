@@ -6,8 +6,8 @@ import org.apache.commons.lang3.ObjectUtils;
 @Getter
 public enum UserRoleEnum {
 
-    USER("用户", "user"),
-    ADMIN("管理员", "admin");
+    USER("user","用户"),
+    ADMIN("admin","管理员");
 
     private final String text;
 

@@ -1,5 +1,6 @@
 package com.zh.zhpicturebackend.controller;
 
+import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zh.zhpicturebackend.annotation.AuthCheck;
 import com.zh.zhpicturebackend.common.BaseResponse;
@@ -16,6 +17,7 @@ import com.zh.zhpicturebackend.service.UserService;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -28,6 +30,12 @@ public class UserController {
 
     @Resource
     private UserService userService;
+
+    /**
+     * 新增用户时的初始密码（配置于 application.yml，可通过环境变量 USER_DEFAULT_PASSWORD 覆盖）
+     */
+    @Value("${zh-picture.user.default-password}")
+    private String defaultPassword;
 
 
     /**
@@ -95,13 +103,17 @@ public class UserController {
         ThrowUtils.throwIf(userAddRequest == null, ErrorCode.PARAMS_ERROR);
         User user = new User();
         BeanUtils.copyProperties(userAddRequest, user);
-        // 默认密码
-        final String DEFAULT_PASSWORD = "123456";
-        String encryptPassword = userService.getEncryptPassword(DEFAULT_PASSWORD);
-        user.setUserPassword(encryptPassword);
+        // 优先使用请求中指定的密码；仅在未指定时使用配置的初始密码（避免无条件覆盖请求的密码）
+        String rawPassword = StrUtil.isNotBlank(userAddRequest.getUserPassword())
+                ? userAddRequest.getUserPassword()
+                : defaultPassword;
+        // 密码长度校验：与注册接口保持一致的 8~16 位规则
+        ThrowUtils.throwIf(rawPassword.length() < 8 || rawPassword.length() > 16,
+                ErrorCode.PARAMS_ERROR, "密码长度应为 8~16 位");
+        user.setUserPassword(userService.getEncryptPassword(rawPassword));
         // 插入数据库
         boolean save = userService.save(user);
-        ThrowUtils.throwIf(!save, ErrorCode.OPERATION_ERROR, "用户注册失败");
+        ThrowUtils.throwIf(!save, ErrorCode.OPERATION_ERROR, "添加用户失败");
 
         return ResultUtils.success(user.getId());
     }

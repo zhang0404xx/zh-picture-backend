@@ -67,3 +67,6 @@ logs/
 *.bak
 *.swp
 *~
+
+### Custom ###
+application-local.yml
