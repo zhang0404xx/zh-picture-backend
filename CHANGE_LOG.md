@@ -158,6 +158,9 @@
 ### 新增
 
 - 腾讯云 COS 对象存储配置（`cos.client`：host / secretId / secretKey / region / bucket，附带控制台与密钥获取地址的注释说明）（`application-local.yml`）
+- 测试文件下载接口 `GET /file/test/download`（仅管理员；从 COS 下载对象并以附件流返回：文件名 URL 编码防中文乱码、设置 Content-Length、流式拷贝避免大文件占用内存、对象不存在返回 40400）（`FileController.java`、`CosManager.java`）
+- 文件管理类上传/下载对象方法：`FileManager.putObject(String key, File file)`（以 `file.getPath()` 委托）与 `FileManager.downloadObject(String key)`（直接转发），内部委托 `CosManager` 完成 COS 操作（`FileManager.java`）（2026-09-23）
+- `CosManager` 新增 `putObject(PutObjectRequest)` 重载：内部转发 `cosClient.putObject(request)`，支持调用方构造自定义上传请求（如设置图片处理、元数据等参数）；`FileManager.putObjectCOS` 借此以请求对象方式上传（`CosManager.java`、`FileManager.java`）（2026-09-23）
 
 ### 修改
 
@@ -170,6 +173,8 @@
 - **测试上传接口上传的 COS 对象 key 恒为 `uploads/`（文件名丢失、互相覆盖）**：`String.format("uploads/" ,fileName)` 缺少 `%s` 占位符；临时文件此前以含路径分隔符的 filePath 作前缀。修正为 `String.format("uploads/%s", fileName)`，临时文件改用固定前缀 `File.createTempFile("upload-", null)`（`FileController.java`）
 - **用户注册接口报 `Unknown column 'user_account' in 'field list'`**：`map-underscore-to-camel-case: true` 使 MyBatis-Plus 把实体驼峰字段转为下划线列名生成 SQL（`userAccount` → `user_account`），而数据库列名为驼峰命名导致不匹配；改为 `false` 后 MP 直接使用字段名作列名（`application.yml`）
 - **创建用户接口（/user/add）安全问题修复**：请求中指定的密码被固定弱密码 `123456` 无条件覆盖（管理员指定密码无效）；默认密码硬编码为弱口令；接口鉴权被注释。修正为：优先使用请求指定密码、缺省时使用 `zh-picture.user.default-password` 配置的初始密码（默认 `ZhPicture@123`，支持环境变量 `USER_DEFAULT_PASSWORD` 覆盖），密码校验 8~16 位；恢复管理员鉴权 `@AuthCheck(mustRole = ADMIN_ROLE)`（`UserController.java`、`application.yml`）
+- **COS 下载方法无法编译（`Cannot resolve symbol 'COSObjectRequest'`）**：`cos_api:5.6.227` 不存在 `COSObjectRequest` 类（仅有 `COSObject`、`COSObjectInputStream`、`GetObjectRequest` 等），`CosManager.downloadObject` 误用不存在的请求类；改用 `cosClient.getObject(bucket, key)` 重载获取 `COSObject`，并清理无用导入。同时移除 `FileController` 中悬空在类外、引用未定义变量的下载方法草稿（`CosManager.java`、`FileController.java`）
+- **FileManager 编译失败（`putObject(PutObjectRequest)` 无法应用 / `getObject(bucket, key)` 找不到符号）**：字段类型误写为 `CosManager`（字段名 `cosClient`，所调两个重载均属 `COSClient`，同包类免导入导致误选）；按委托方案调整为注入 `CosManager cosManager` 并实现上传/下载方法，清理无用导入（`FileManager.java`）（2026-09-23）
 
 ### 配置变更
 
